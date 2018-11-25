@@ -1,38 +1,7 @@
 <?php
+require __DIR__.'/common.php';
+
 define('AUDIO_INFO_BIN', '/data/wk/go/audioinfo/src/audioinfo/audioinfo');
-
-function testNewName(){
-    $names = [
-        '02 夜空中最亮的星.WAV',
-        '10.华晨宇 - 我管你.mp3',
-        '01. 星星小夜曲 SERENADE DELETOILE_track1.mp3',
-        '01旧情绵绵.mp3',
-        '10叔 - 山坡上的两头牛.flac'
-    ];
-
-    foreach ($names as $n){
-        echo "$n => [".getNewName($n)."]\n";
-    }
-}
-
-function getNewName($name) {
-    if(mb_substr($name, 0, 3, 'utf8')=="10叔"){
-        return ltrim($name);
-    }
-    return ltrim($name, " 0123456789.");
-}
-
-
-function isValid($pstr){
-    //utf8
-    if (preg_match("/^([".chr(228)."-".chr(233)."]{1}[".chr(128)."-".chr(191)."]{1}[".chr(128)."-".chr(191)."]{1}){1}/",$pstr) == true
-        || preg_match("/([".chr(228)."-".chr(233)."]{1}[".chr(128)."-".chr(191)."]{1}[".chr(128)."-".chr(191)."]{1}){1}$/",$pstr) == true
-        || preg_match("/([".chr(228)."-".chr(233)."]{1}[".chr(128)."-".chr(191)."]{1}[".chr(128)."-".chr(191)."]{1}){2,}/",$pstr) == true){
-        return true;
-    }
-    //ascii
-    return !preg_match('/[^\x20-\x7f、]/', $pstr);
-}
 
 function getMetaInfo($info) {
     $meta = json_decode($info);
@@ -56,11 +25,6 @@ function getMetaInfo($info) {
     }
     return $ret;
 }
-
-function mvFile($from, $to) {
-    return rename($from, $to);
-}
-
 
 function cleanDir($dir, $okDir, $otherDir, $enableOverwrite, &$stat)
 {
@@ -145,7 +109,6 @@ function cleanDir($dir, $okDir, $otherDir, $enableOverwrite, &$stat)
             if(is_file($descFile)) {
                 $stat['dup']++;
                 if($enableOverwrite && $overwrite){
-                    @unlink($descFile);
                     $status = mvFile($fpath, $descFile);
                 }else{
                     $status = true;
@@ -168,6 +131,7 @@ function cleanDir($dir, $okDir, $otherDir, $enableOverwrite, &$stat)
 
 //把乱码文件移动到单独的目录
 function findWrongFiles($dir, $destDir) {
+    $total = 0;
     //1、首先先读取文件夹
     $temp = scandir($dir);
     //遍历文件夹
@@ -178,26 +142,30 @@ function findWrongFiles($dir, $destDir) {
         } else {
 
             $fpath = realpath($fpath);
-
             $srcName =  basename($fpath);
             if(!isValid($srcName)) {
                 echo "wrong file  $srcName\n";
+                $total++;
                 rename($fpath,$destDir."/".$srcName);
             }
         }
     }
+    echo "total wrong:$total\n";
 }
 
-
+//提取歌曲中的meta信息，并重命名文件
 function cleanFolder(){
     $stat = ["total"=>0, "ok"=>0, "fail"=>0, "dup"=>0];
-    $okDir = "/mnt/hgfs/mp3/ok";
-    $otherDir = "/mnt/hgfs/mp3/other";
-    $list = [
-        "/mnt/hgfs/mp3-d/明星专辑+CD歌曲",
+    $configs = [
+//        ['src'=>"/mnt/hgfs/mp3-d/明星专辑+CD歌曲", 'ok'=>'', 'other'=>"/mnt/hgfs/mp3-d/明星专辑+CD歌曲", 'force'=>0]
+        ['src'=>"/mnt/hgfs/mp3/暂不处理/2017/mom", 'ok'=>'/mnt/hgfs/mp3/mom', 'other'=>"/mnt/hgfs/mp3/mom", 'force'=>0]
     ];
-    foreach ($list as $srcDir) {
-        cleanDir($srcDir, $okDir, $otherDir, 0, $stat);
+
+    foreach ($configs as $item){
+        $okDir = $item['ok'];
+        $otherDir = $item['other'];;
+        $srcDir = $item['src'];
+        cleanDir($srcDir, $okDir, $otherDir, $item['force'], $stat);
     }
 
 //findWrongFiles($okDir, $wrongDir);
@@ -251,4 +219,105 @@ function moveFiles(){
 
 }
 
-moveFiles();
+function formatName($list, &$stat) {
+    foreach ($list as $dir){
+        $files = scandir($dir);
+        echo "processing dir $dir\n";
+        foreach ($files as $file){
+            if($file=="." || $file==".."){
+                continue;
+            }
+            $path = $dir."/".$file;
+            if(is_dir($path)){
+                formatName([$path], $stat);
+            }else{
+                $srcName = basename($path);
+
+                $newName = getNewName($srcName);
+
+                if($srcName!=$newName){
+                    $newPath = "$dir/{$newName}";
+                    if(is_file($newPath)){
+                        $stat['remove']++;
+                        @unlink($path);
+                        echo "[remove dup] {$path}=>{$newPath}\n";
+                    }else{
+                        echo "[rename] {$path}=>{$newPath}\n";
+                        mvFile($path, $newPath);
+                        $stat['rename']++;
+                    }
+
+                }
+
+            }
+        }
+    }
+}
+
+//规范化英文歌名
+function formatEnName($list) {
+    $stat = [];
+    foreach ($list as $dir){
+        $files = scandir($dir);
+        echo "processing dir $dir\n";
+        foreach ($files as $file){
+            if($file=="." || $file==".."){
+                continue;
+            }
+            $path = $dir."/".$file;
+            if(is_dir($path)){
+                continue;
+            }else{
+                $srcName = basename($path);
+                $replaceStr = [
+                    ['k'=>'火星哥 Bruno Mars', 'v'=>'Bruno Mars'],
+                    ['k'=>'迈克杰克逊', 'v'=>'Michanel Jackson'],
+                    ['k'=>'阿黛尔  Adele', 'v'=>'Adele'],
+                    ['k'=>'后街男孩   Backstreet boys', 'v'=>'Backstreet boys'],
+                    ['k'=>'艾薇儿.拉维尼 Avril Lavigne', 'v'=>'Avril Lavigne'],
+                ];
+                $newName = $srcName;
+                foreach ($replaceStr as $item) {
+                    $newName = str_replace($item['k'], $item['v'], $newName);
+                }
+
+                if($srcName!=$newName){
+                    $newPath = "$dir/{$newName}";
+                    if(is_file($newPath)){
+                        $stat['remove']++;
+                        @unlink($path);
+                        echo "[remove dup] {$path}=>{$newPath}\n";
+                    }else{
+                        echo "[rename] {$path}=>{$newPath}\n";
+                        mvFile($path, $newPath);
+                        $stat['rename']++;
+                    }
+
+                }
+
+            }
+        }
+    }
+    echo "stat:".json_encode($stat)."\n";
+}
+
+
+//通过读取元数据，重命名文件
+cleanFolder();
+
+
+//移动文件目录
+//moveFiles();
+
+////规范化英文歌名
+//formatEnName(['/mnt/hgfs/mp3/en']);
+
+////规范化文件名
+//$stat=[];
+//formatName(['/mnt/hgfs/mp3-d/ok', '/mnt/hgfs/mp3/ok','/mnt/hgfs/mp3/other'], $stat);
+//echo "format stat:".json_encode($stat)."\n";
+
+//找出乱码文件
+//$strDir = '/mnt/hgfs/mp3-d/ok';
+//$wrongDir = '/mnt/hgfs/mp3/wrong';
+//findWrongFiles($strDir, $wrongDir);
