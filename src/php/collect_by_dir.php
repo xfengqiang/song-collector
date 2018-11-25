@@ -45,12 +45,13 @@ function collectByDirname($dir, $okDir, &$stat)
 
 function collectDir() {
     $stat = ["total"=>0, "ok"=>0, "fail"=>0, "dup"=>0];
-    $okDir = "/mnt/hgfs/mp3/en";
-    $list = [
-        "/mnt/hgfs/mp3-d/英文歌手",
-        "/mnt/hgfs/mp3-d/明星专辑+CD歌曲",
+    $configs = [
+        ['src'=>'/mnt/hgfs/mp3-d/left','dest'=>'/mnt/hgfs/mp3-d/ok']
     ];
-    foreach ($list as $srcDir) {
+
+    foreach ($configs as $item) {
+        $srcDir = $item['src'];
+        $okDir = $item['dest'];
         collectByDirname($srcDir, $okDir, $stat);
     }
 

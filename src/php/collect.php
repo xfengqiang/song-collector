@@ -303,19 +303,20 @@ function formatEnName($list) {
 
 
 //通过读取元数据，重命名文件
-cleanFolder();
+//cleanFolder();
 
 
 //移动文件目录
 //moveFiles();
 
 ////规范化英文歌名
-//formatEnName(['/mnt/hgfs/mp3/en']);
+//formatEnName(['/mnt/hgfs/G']);
 
 ////规范化文件名
-//$stat=[];
-//formatName(['/mnt/hgfs/mp3-d/ok', '/mnt/hgfs/mp3/ok','/mnt/hgfs/mp3/other'], $stat);
-//echo "format stat:".json_encode($stat)."\n";
+$stat=[];
+formatName(['/mnt/hgfs/mp3-d/ok','/mnt/hgfs/mp3/all'], $stat);
+//formatName(['/mnt/hgfs/mp3/ok','/mnt/hgfs/mp3/other'], $stat);
+echo "format stat:".json_encode($stat)."\n";
 
 //找出乱码文件
 //$strDir = '/mnt/hgfs/mp3-d/ok';

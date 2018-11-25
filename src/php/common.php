@@ -39,18 +39,24 @@ function getNewName($name) {
     $newParts = [];
     foreach ($parts as $part){
         $part = trim($part);
+
+        if (intval($part) < 20) {
+            //去掉开头的数字排名
+            if(mb_substr($part, 0, 3, 'utf8')=="10叔"){
+                $part = ltrim($part);
+            }else{
+                $part = ltrim($part, " 0123456789.");
+            }
+        }
+
+
         if($part!=''){
             $newParts[] = $part;
         }
     }
+
     $name = implode(" - ", $newParts);
 
-    //去掉开头的数字排名
-    if(mb_substr($name, 0, 3, 'utf8')=="10叔"){
-        $name = ltrim($name);
-    }else{
-        $name = ltrim($name, " 0123456789.");
-    }
     return $name;
 }
 
